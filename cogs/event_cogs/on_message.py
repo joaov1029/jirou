@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
-
+import subprocess
+import io
 from bot_utilities.response_utils import split_response
 from bot_utilities.ai_utils import generate_response, text_to_speech
 from bot_utilities.config_loader import config, load_active_channels
@@ -45,6 +46,23 @@ class OnMessage(commands.Cog):
 
     async def generate_response(self, instructions, history):
         return await generate_response(instructions=instructions, history=history)
+    
+    def convert_audio_bytes_with_ffmpeg(audio_bytes):
+   
+        command = [
+        'ffmpeg', '-i', 'pipe:', 
+        '-acodec', 'pcm_s16le', 
+        '-ar', '16000', # Sample rate
+        '-ac', '1',     # Mono channel
+        '-f', 'wav',    # Output format
+        '-y', 'output.wav' # Output file path
+        ]
+    
+        try:
+            process = subprocess.run(command, input=audio_bytes, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            print("FFmpeg conversion successful.")
+        except subprocess.CalledProcessError as e:
+            print(f"FFmpeg error: {e.stderr.decode('utf-8')}") # Decode stderr bytes to string for readability
 
     async def send_response(self, message, response):
         bytes_obj = await text_to_speech(response)
@@ -57,7 +75,10 @@ class OnMessage(commands.Cog):
 
         if author_voice_channel:
             voice_channel = await author_voice_channel.connect()
-            voice_channel.play(discord.FFmpegPCMAudio(executable="ffmpeg", source=bytes_obj))
+            #byte = bytes_obj.getvalue().decode("latin1")
+            filename = "C:\\Users\\joaov\\Downloads\\LLM-TEST-ChatBOT\\"+ bytes_obj
+            self.FFMPEG_OPTIONS ={'options': '-vn -filter:a "volume=0.50"'}
+            voice_channel.play(discord.FFmpegOpusAudio(source=filename, **self.FFMPEG_OPTIONS), after=lambda e: print(f'Player error: {e}') if e else None)
             while voice_channel.is_playing():
                 pass
             await voice_channel.disconnect()
@@ -70,6 +91,8 @@ class OnMessage(commands.Cog):
                     await message.channel.send("I apologize for any inconvenience caused. It seems that there was an error preventing the delivery of my message. Additionally, it appears that the message I was replying to has been deleted, which could be the reason for the issue. If you have any further questions or if there's anything else I can assist you with, please let me know and I'll be happy to help.")
         else:
             await message.reply("I apologize for any inconvenience caused. It seems that there was an error preventing the delivery of my message.")
+
+    
 
     @commands.Cog.listener()
     async def on_message(self, message):

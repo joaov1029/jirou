@@ -153,6 +153,8 @@ async def text_to_speech(text):
     bytes_obj = io.BytesIO()
     detected_language = detect(text)
     tts = gTTS(text=text, lang=detected_language)
+    filename = "temp_tts.mp3"
+    tts.save(filename)
     tts.write_to_fp(bytes_obj)
     bytes_obj.seek(0)
-    return bytes_obj
+    return filename
